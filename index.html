@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Копилка</title>
+  <meta name="theme-color" content="#ff0000" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon.png" />
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 20px;
+      transition: background-color 0.3s, color 0.3s;
+      background-size: cover;
+    }
+    input, button, select {
+      margin: 5px;
+      padding: 8px;
+      font-size: 16px;
+    }
+    .theme-red { background-color: #ffdddd; color: #000; }
+    .theme-yellow { background-color: #fffacd; color: #000; }
+    .theme-black { background-color: #333; color: white; }
+    .confetti {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 9999;
+      display: none;
+    }
+    .confetti div {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background-color: #ffcc00;
+      animation: confetti-fall 3s infinite;
+    }
+    @keyframes confetti-fall {
+      from { transform: translateY(-100vh); }
+      to { transform: translateY(100vh); }
+    }
+  </style>
+</head>
+<body class="theme-red">
+  <h1>Копилка</h1>
+
+  <div>
+    <label>Название цели: <input id="goalName" /></label><br />
+    <label>Сумма цели (₽): <input type="number" id="goalAmount" /></label><br />
+    <label>Доход в неделю (₽): <input type="number" id="weeklyIncome" /></label><br />
+    <label>Загрузить фото цели: <input type="file" id="goalImage" accept="image/*" /></label><br />
+    <button onclick="setGoal()">Установить цель</button>
+  </div>
+
+  <h2 id="goalDisplay"></h2>
+  <p id="progress"></p>
+  <p id="timeLeft"></p>
+
+  <div>
+    <label>Изменение суммы (₽): <input type="number" id="changeAmount" /></label><br />
+    <button onclick="changeAmount(true)">Прибавить</button>
+    <button onclick="changeAmount(false)">Убавить</button>
+  </div>
+
+  <div>
+    <button onclick="editGoal()">Редактировать цель</button>
+    <button onclick="deleteGoal()">Удалить цель</button>
+  </div>
+
+  <div class="confetti" id="confetti"></div>
+
+  <div>
+    <h3>Тема:</h3>
+    <select onchange="changeTheme(this.value)">
+      <option value="red">Красный свет</option>
+      <option value="yellow">Жёлтый свет</option>
+      <option value="black">Чёрный цвет</option>
+    </select>
+  </div>
+
+  <script>
+    let saved = 0, goal = 0, weekly = 0, goalName = "", goalImageUrl = "", isGoalAchieved = false;
+
+    function setGoal() {
+      goalName = document.getElementById('goalName').value;
+      goal = Number(document.getElementById('goalAmount').value);
+      weekly = Number(document.getElementById('weeklyIncome').value);
+      saved = 0;
+
+      const fileInput = document.getElementById('goalImage');
+      const file = fileInput.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function (event) {
+          goalImageUrl = event.target.result;
+          document.body.style.backgroundImage = `url(${goalImageUrl})`;
+          saveData();
+        };
+        reader.readAsDataURL(file);
+      } else {
+        saveData();
+      }
+
+      document.getElementById('goalDisplay').textContent = `Цель: ${goalName} – ${goal}₽`;
+      updateProgress();
+    }
+
+    function updateProgress() {
+      const remaining = goal - saved;
+      document.getElementById('progress').textContent = `Накоплено: ${saved}₽, осталось: ${remaining}₽`;
+
+      if (weekly > 0 && remaining > 0) {
+        const weeks = Math.ceil(remaining / weekly);
+        const days = weeks * 7;
+        document.getElementById('timeLeft').textContent = `Вы достигнете цели примерно за ${weeks} недель (${days} дней).`;
+      } else {
+        document.getElementById('timeLeft').textContent = '';
+      }
+
+      if (saved >= goal && !isGoalAchieved) {
+        achieveGoal();
+      }
+    }
+
+    function changeAmount(add) {
+      const amount = Number(document.getElementById('changeAmount').value);
+      if (add) {
+        saved += amount;
+      } else {
+        saved = Math.max(0, saved - amount);
+      }
+      updateProgress();
+      saveData();
+    }
+
+    function achieveGoal() {
+      isGoalAchieved = true;
+      showConfetti();
+      setTimeout(() => alert(`Ты супер! Ты достиг своей цели: ${goalName}`), 100);
+    }
+
+    function showConfetti() {
+      const confettiContainer = document.getElementById('confetti');
+      confettiContainer.innerHTML = '';
+      confettiContainer.style.display = 'block';
+      for (let i = 0; i < 100; i++) {
+        const confettiPiece = document.createElement('div');
+        confettiPiece.style.left = `${Math.random() * 100}%`;
+        confettiPiece.style.animationDuration = `${Math.random() * 3 + 2}s`;
+        confettiContainer.appendChild(confettiPiece);
+      }
+    }
+
+    function editGoal() {
+      const newGoalName = prompt('Введите новое название цели:', goalName);
+      const newGoalAmount = prompt('Введите новую сумму цели (₽):', goal);
+      const newWeeklyIncome = prompt('Введите новый доход в неделю (₽):', weekly);
+
+      if (newGoalName !== null) goalName = newGoalName;
+      if (newGoalAmount !== null) goal = Number(newGoalAmount);
+      if (newWeeklyIncome !== null) weekly = Number(newWeeklyIncome);
+
+      document.getElementById('goalName').value = goalName;
+      document.getElementById('goalAmount').value = goal;
+      document.getElementById('weeklyIncome').value = weekly;
+
+      updateProgress();
+      saveData();
+    }
+
+    function deleteGoal() {
+      const confirmation = confirm('Вы уверены, что хотите удалить цель?');
+      if (confirmation) {
+        goalName = "";
+        goal = 0;
+        weekly = 0;
+        saved = 0;
+        goalImageUrl = "";
+        isGoalAchieved = false;
+        document.body.style.backgroundImage = "";
+        document.getElementById('goalDisplay').textContent = "";
+        document.getElementById('progress').textContent = "";
+        document.getElementById('timeLeft').textContent = "";
+        document.getElementById('confetti').style.display = 'none';
+        document.getElementById('confetti').innerHTML = '';
+        localStorage.removeItem('kopilkaData');
+      }
+    }
+
+    function changeTheme(theme) {
+      document.body.className = '';
+      if (theme === 'red') document.body.classList.add('theme-red');
+      if (theme === 'yellow') document.body.classList.add('theme-yellow');
+      if (theme === 'black') document.body.classList.add('theme-black');
+      localStorage.setItem('kopilkaTheme', theme);
+    }
+
+    function saveData() {
+      const data = {
+        goalName,
+        goal,
+        weekly,
+        saved,
+        goalImageUrl,
+        isGoalAchieved
+      };
+      localStorage.setItem('kopilkaData', JSON.stringify(data));
+    }
+
+    function loadData() {
+      const data = JSON.parse(localStorage.getItem('kopilkaData'));
+      if (data) {
+        goalName = data.goalName;
+        goal = Number(data.goal);
+        weekly = Number(data.weekly);
+        saved = Number(data.saved);
+        goalImageUrl = data.goalImageUrl;
+        isGoalAchieved = data.isGoalAchieved;
+
+        document.getElementById('goalName').value = goalName;
+        document.getElementById('goalAmount').value = goal;
+        document.getElementById('weeklyIncome').value = weekly;
+        document.getElementById('goalDisplay').textContent = `Цель: ${goalName} – ${goal}₽`;
+        if (goalImageUrl) {
+          document.body.style.backgroundImage = `url(${goalImageUrl})`;
+        }
+
+        updateProgress();
+      }
+
+      const savedTheme = localStorage.getItem('kopilkaTheme');
+      if (savedTheme) {
+        changeTheme(savedTheme);
+        document.querySelector('select').value = savedTheme;
+      }
+    }
+
+    window.onload = loadData;
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(() => console.log('Service Worker зарегистрирован'))
+        .catch(err => console.error('Ошибка регистрации Service Worker:', err));
+    }
+  </script>
+</body>
+</html>
