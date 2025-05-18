@@ -62,6 +62,7 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       gap: 10px;
+      margin-bottom: 20px;
     }
     .cart, .customer-info {
       background: #fafafa;
@@ -84,31 +85,17 @@
   <div class="container">
     <h1>🛒 Касса "Вкус СССР"</h1>
 
-    <!-- Регистрация / вход клиента -->
-    <div id="loginScreen">
-      <h3>Введите телефон клиента:</h3>
+    <!-- Ввод телефона клиента -->
+    <div>
       <input type="text" id="phoneInput" placeholder="+7 (___) ___-__-__" />
-      <button onclick="loginCustomer()">Войти</button>
-      <button onclick="showRegisterForm()">Зарегистрировать нового</button>
-    </div>
-
-    <!-- Форма регистрации -->
-    <div id="registerForm" style="display: none;">
-      <h3>Регистрация клиента</h3>
-      <input type="text" id="newName" placeholder="Имя клиента" />
-      <input type="text" id="newPhone" placeholder="Телефон" />
-      <button onclick="registerCustomer()">Зарегистрировать</button>
+      <button onclick="loginCustomer()">Войти по телефону</button>
     </div>
 
     <!-- Информация о клиенте -->
     <div class="customer-info" id="customerInfo" style="display: none;">
-      <p><strong>Имя:</strong> <span id="customerName"></span></p>
       <p><strong>Телефон:</strong> <span id="customerPhone"></span></p>
       <p><strong>Баллы:</strong> <span id="customerPoints">0</span></p>
-      <div>
-        <input type="number" id="pointsToUse" placeholder="Сколько списать баллов?" min="0" />
-        <button onclick="useCustomPoints()">Списать</button>
-      </div>
+      <button onclick="usePoints()">Списать баллы</button>
     </div>
 
     <!-- Фильтры -->
@@ -128,7 +115,7 @@
       <p><strong>Итого:</strong> <span id="total">0</span> ₽</p>
       <button onclick="checkout('cash')">Наличными</button>
       <button onclick="checkout('card')">Картой</button>
-      <button onclick="clearCart()">Очистить</button>
+      <button onclick="clearCart()">Очистить чек</button>
     </div>
   </div>
 
@@ -155,21 +142,6 @@
       { category: 'food', code: "F014", name: "Фарш смешанный", price: 280 },
       { category: 'food', code: "F015", name: "Сосиски", price: 180 },
       { category: 'food', code: "F016", name: "Колбаса докторская", price: 270 },
-      { category: 'food', code: "F017", name: "Крыжневичи", price: 73 },
-      { category: 'food', code: "F018", name: "Мальборо", price: 120 },
-      { category: 'food', code: "F019", name: "КЭ", price: 65 },
-      { category: 'food', code: "F020", name: "Winston", price: 115 },
-      { category: 'food', code: "F021", name: "Lucky Strike", price: 120 },
-      { category: 'food', code: "F022", name: "Davidoff", price: 130 },
-      { category: 'food', code: "F023", name: "Pall Mall", price: 100 },
-      { category: 'food', code: "F024", name: "Camel", price: 110 },
-      { category: 'food', code: "F025", name: "Parliament", price: 125 },
-      { category: 'food', code: "F026", name: "Bond", price: 70 },
-      { category: 'food', code: "F027", name: "Прима Ментол", price: 73 },
-      { category: 'food', code: "F028", name: "Шоколад Alenka", price: 70 },
-      { category: 'food', code: "F029", name: "Печенье Юбилейное", price: 50 },
-      { category: 'food', code: "F030", name: "Конфеты Ромашка", price: 90 },
-      { category: 'food', code: "F031", name: "Сухофрукты 200г", price: 110 },
 
       // Алкоголь
       { category: 'alcohol', code: "A001", name: "Зубровка", price: 450 },
@@ -216,19 +188,33 @@
       { category: 'cigarettes', code: "C020", name: "Прима Ментол", price: 73 },
     ];
 
+    function generateProductButtons(category = 'food') {
+      const container = document.getElementById("products-container");
+      container.innerHTML = "";
+      const filteredProducts = productsDB.filter(p => p.category === category);
+      filteredProducts.forEach(product => {
+        const btn = document.createElement("button");
+        btn.textContent = `${product.name} — ${product.price} ₽`;
+        btn.onclick = () => addToCart(product.name, product.price);
+        container.appendChild(btn);
+      });
+      // Активная кнопка фильтра
+      document.querySelectorAll(".filters button").forEach(b => b.classList.remove("active"));
+      document.querySelector(`.filters button[data-category="${category}"]`).classList.add("active");
+    }
+
+    function showCategory(cat) {
+      generateProductButtons(cat);
+    }
+
     function addToCart(name, price) {
-      const qty = prompt(`Сколько "${name}" вы хотите добавить?`, "1");
-      const quantity = parseInt(qty);
-
-      if (!qty || isNaN(quantity) || quantity <= 0) {
-        alert("Введите корректное количество");
-        return;
+      const existingItem = cart.find(item => item.name === name);
+      if (existingItem) {
+        existingItem.quantity += 1;
+        existingItem.totalPrice = existingItem.price * existingItem.quantity;
+      } else {
+        cart.push({ name, price, quantity: 1, totalPrice: price });
       }
-
-      for (let i = 0; i < quantity; i++) {
-        cart.push({ name, price });
-      }
-
       updateCart();
     }
 
@@ -238,115 +224,82 @@
       itemsList.innerHTML = "";
       let total = 0;
 
-      const grouped = {};
-
       cart.forEach((item, index) => {
-        if (!grouped[item.name]) {
-          grouped[item.name] = { price: item.price, count: 0 };
-        }
-        grouped[item.name].count++;
-      });
-
-      Object.keys(grouped).forEach(name => {
-        const info = grouped[name];
-        const totalPrice = info.price * info.count;
-
         const li = document.createElement("li");
-        li.textContent = `${name} x${info.count} — ${totalPrice} ₽`;
+        li.textContent = `${item.name} x${item.quantity} — ${item.totalPrice} ₽`;
+
+        const removeBtn = document.createElement("button");
+        removeBtn.textContent = "❌";
+        removeBtn.style.fontSize = "12px";
+        removeBtn.style.background = "#ff5252";
+        removeBtn.style.color = "white";
+        removeBtn.style.border = "none";
+        removeBtn.onclick = () => {
+          const enteredCode = prompt("Введите код сотрудника для удаления товара:");
+          if (enteredCode === "1265") {
+            cart.splice(index, 1);
+            updateCart();
+          } else {
+            alert("❌ Неверный код!");
+          }
+        };
+
+        li.appendChild(removeBtn);
         itemsList.appendChild(li);
-        total += totalPrice;
+        total += item.totalPrice;
       });
 
       totalEl.textContent = total;
     }
 
-    function showRegisterForm() {
-      document.getElementById("loginScreen").style.display = "none";
-      document.getElementById("registerForm").style.display = "block";
-    }
-
-    function registerCustomer() {
-      const phone = document.getElementById("newPhone").value.trim();
-      const name = document.getElementById("newName").value.trim();
-
-      if (!phone || !name) {
-        alert("Заполните все поля");
-        return;
-      }
-
-      if (customers[phone]) {
-        alert("Клиент уже существует");
-        return;
-      }
-
-      customers[phone] = { name, points: 0, history: [] };
-      localStorage.setItem("customers", JSON.stringify(customers));
-      alert(`✅ Клиент зарегистрирован: ${name}, ${phone}`);
-      showLoginScreen();
-    }
-
-    function showLoginScreen() {
-      document.getElementById("registerForm").style.display = "none";
-      document.getElementById("loginScreen").style.display = "block";
-    }
-
     function loginCustomer() {
       const phone = document.getElementById("phoneInput").value.trim();
-
-      if (!phone) {
-        alert("Введите номер телефона");
-        return;
-      }
+      if (!phone) return alert("Введите номер телефона");
 
       if (customers[phone]) {
         currentCustomer = phone;
         showCustomerInfo(customers[phone]);
       } else {
-        alert("Клиент не найден");
+        customers[phone] = { points: 0, history: [] };
+        localStorage.setItem("customers", JSON.stringify(customers));
+        currentCustomer = phone;
+        showCustomerInfo(customers[phone]);
       }
     }
 
     function showCustomerInfo(data) {
-      document.getElementById("customerName").textContent = data.name;
+      document.getElementById("customerInfo").style.display = "block";
       document.getElementById("customerPhone").textContent = currentCustomer;
       document.getElementById("customerPoints").textContent = data.points;
-      document.getElementById("customerInfo").style.display = "block";
     }
 
-    function useCustomPoints() {
-      const pointsToUse = parseInt(document.getElementById("pointsToUse").value);
+    function usePoints() {
       if (!currentCustomer) return alert("Выберите клиента");
 
       const customer = customers[currentCustomer];
+      const pointsNeeded = 100;
 
-      if (isNaN(pointsToUse) || pointsToUse < 0) {
-        alert("Введите положительное число");
-        return;
-      }
-
-      if (customer.points >= pointsToUse && pointsToUse > 0) {
-        customer.points -= pointsToUse;
+      if (customer.points >= pointsNeeded) {
+        customer.points -= pointsNeeded;
         customer.history.push({
-          text: `Списание ${pointsToUse} баллов`,
-          points: `- ${pointsToUse}`,
+          text: `Списание ${pointsNeeded} баллов`,
+          points: "-100",
           date: new Date().toLocaleString()
         });
-
-        localStorage.setItem("customers", JSON.stringify(customer));
+        localStorage.setItem("customers", JSON.stringify(customers));
         showCustomerInfo(customer);
 
-        // Добавляем скидку в чек
         cart.push({
-          name: `Скидка (${pointsToUse} баллов)`,
-          price: -pointsToUse,
+          name: "Скидка по баллам",
+          price: -50,
           quantity: 1,
-          totalPrice: -pointsToUse
+          totalPrice: -50
         });
 
         updateCart();
-        alert(`✅ Вы списали ${pointsToUse} баллов`);
+        alert("✅ Баллы списаны (-100) → Скидка применена (-50 ₽)");
       } else {
-        alert("❌ Недостаточно баллов для списания");
+        alert("❌ Недостаточно баллов для обмена");
       }
     }
 
@@ -356,21 +309,22 @@
         return;
       }
 
-      const total = cart.reduce((sum, item) => sum + item.price, 0);
+      const total = cart.reduce((sum, item) => sum + item.totalPrice, 0);
 
+      // Начисляем 1% бонусов
       if (currentCustomer && total > 0) {
-        const pointsToAdd = Math.floor(total * 0.5); // 50% бонусов
+        const pointsToAdd = Math.floor(total * 0.01); // 1%
         customers[currentCustomer].points += pointsToAdd;
         customers[currentCustomer].history.push({
-          text: `+ ${pointsToAdd} баллов за покупку на ${total} ₽`,
-          points: `+ ${pointsToAdd}`,
+          text: `+${pointsToAdd} за покупку на ${total} ₽`,
+          points: "+" + pointsToAdd,
           date: new Date().toLocaleString()
         });
         localStorage.setItem("customers", JSON.stringify(customers));
         showCustomerInfo(customers[currentCustomer]);
       }
 
-      alert(`✅ Оплачено ${paymentMethod === 'cash' ? 'наличными' : 'картой'}!`);
+      alert(`✅ Оплачено ${paymentMethod === 'cash' ? 'наличными' : 'картой'}`);
       clearCart();
     }
 
@@ -379,29 +333,8 @@
       updateCart();
     }
 
-    function generateProductButtons(category = 'food') {
-      const container = document.getElementById("products-container");
-      container.innerHTML = "";
-
-      const filteredProducts = productsDB.filter(p => p.category === category);
-
-      filteredProducts.forEach(product => {
-        const btn = document.createElement("button");
-        btn.textContent = `${product.name} — ${product.price} ₽`;
-        btn.onclick = () => addToCart(product.name, product.price);
-        container.appendChild(btn);
-      });
-
-      document.querySelectorAll(".filters button").forEach(b => b.classList.remove("active"));
-      document.querySelector(`button[data-category="${category}"]`).classList.add("active");
-    }
-
-    function showCategory(cat) {
-      generateProductButtons(cat);
-    }
-
     window.onload = () => {
-      generateProductButtons("food");
+      generateProductButtons("food"); // по умолчанию показываем Продукты
     };
   </script>
 </body>
